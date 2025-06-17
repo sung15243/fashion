@@ -33,23 +33,26 @@ st.markdown("""
 st.markdown('<div class="main-title">🧥 상황별 디테일 코디 추천기</div>', unsafe_allow_html=True)
 st.markdown('<div class="subtitle">상의, 하의, 가방, 모자, 액세서리까지 랜덤으로 풀코디 추천!</div>', unsafe_allow_html=True)
 
-# 전체 색상 리스트 (포인트 색상 포함)
+# 색상 리스트
 colors = ["화이트", "블랙", "베이지", "네이비", "카키", "그레이", "하늘색", "버건디", "브라운", "올리브"]
+bottom_colors = ["베이지", "차콜", "블랙", "화이트"]  # 부담 없는 하의 색상
+bag_colors = ["블랙", "베이지", "브라운", "네이비", "카키", "그레이", "화이트"]  # 톤 다운 가방 색상
 
-# 하의용 색상 (무난한 색상)
-bottom_colors = ["베이지", "차콜", "블랙", "화이트"]
+point_colors = ["하늘색", "핑크", "오렌지"]  # 포인트 색상 최대 1개 허용
 
-# 포인트 색상 (1개 이상 나오면 안 되는 색)
-point_colors = ["파랑", "핑크", "오렌지"]
-
-# 참고: "파랑" 대신 "네이비", "하늘색" 같은 유사색을 색상 리스트에 넣었는데
-# 포인트 색상 카운트는 여기서 '파랑' 기준이므로, "네이비"와 "하늘색"은 포인트 색상에서 제외 처리 가능.
-
-# 그래서 실제 색상 이름이 포인트 색상과 겹치면 안됨.
-# 위 colors 리스트엔 '파랑' 없음 → 따라서, 포인트 색상 "파랑" 체크가 의미 없으니
-# 포인트 색상 리스트를 '하늘색', '핑크', '오렌지'로 바꾸겠습니다!
-
-point_colors = ["하늘색", "핑크", "오렌지"]
+# 보색(충돌) 리스트
+color_clash = {
+    "화이트": [],
+    "블랙": [],
+    "베이지": ["버건디"],
+    "네이비": ["카키", "오렌지"],
+    "카키": ["네이비", "버건디"],
+    "그레이": [],
+    "하늘색": ["브라운"],
+    "버건디": ["베이지", "카키"],
+    "브라운": ["하늘색"],
+    "올리브": ["버건디"],
+}
 
 outfit_data = {
     "남자": {
@@ -78,41 +81,54 @@ def pick_color(possible_colors, used_point_count):
     포인트 색상 1개 이상이면 포인트 색상 제외 후 뽑기
     """
     if used_point_count >= 1:
-        # 포인트 색상 제외
         filtered = [c for c in possible_colors if c not in point_colors]
         if filtered:
             return random.choice(filtered)
         else:
-            # 만약 모두 포인트 색상이라면 그냥 뽑기
             return random.choice(possible_colors)
     else:
         return random.choice(possible_colors)
 
+def pick_color_no_clash(possible_colors, used_colors, used_point_count):
+    tries = 0
+    while tries < 10:
+        color = pick_color(possible_colors, used_point_count)
+        clash = False
+        for uc in used_colors:
+            if color in color_clash.get(uc, []) or uc in color_clash.get(color, []):
+                clash = True
+                break
+        if not clash:
+            return color
+        tries += 1
+    return color
+
 if st.button("✨ 풀코디 추천 받기"):
     point_count = 0
+    used_colors = []
 
-    # 상의 색상
-    top_color = pick_color(colors, point_count)
+    top_color = pick_color_no_clash(colors, used_colors, point_count)
     if top_color in point_colors:
         point_count += 1
+    used_colors.append(top_color)
     top = random.choice(outfit_data[gender]["상의"])
 
-    # 하의 색상 (무조건 bottom_colors 사용)
-    bottom_color = pick_color(bottom_colors, point_count)
+    bottom_color = pick_color_no_clash(bottom_colors, used_colors, point_count)
     if bottom_color in point_colors:
         point_count += 1
+    used_colors.append(bottom_color)
     bottom = random.choice(outfit_data[gender]["하의"])
 
-    # 가방 색상
-    bag_color = pick_color(colors, point_count)
+    bag_color = pick_color_no_clash(bag_colors, used_colors, point_count)
     if bag_color in point_colors:
         point_count += 1
+    used_colors.append(bag_color)
     bag = random.choice(outfit_data[gender]["가방"])
 
-    # 모자 색상
-    hat_color = pick_color(colors, point_count)
+    hat_color = pick_color_no_clash(colors, used_colors, point_count)
     if hat_color in point_colors:
         point_count += 1
+    used_colors.append(hat_color)
     hat = random.choice(outfit_data[gender]["모자"])
 
     accessory = random.choice(outfit_data[gender]["액세서리"])
