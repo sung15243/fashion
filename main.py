@@ -31,10 +31,10 @@ st.markdown("""
 """, unsafe_allow_html=True)
 
 st.markdown('<div class="main-title">🧥 상황별 디테일 코디 추천기</div>', unsafe_allow_html=True)
-st.markdown('<div class="subtitle">상의, 하의, 가방, 모자, 액세서리까지 랜덤으로 풀코디 추천!</div>', unsafe_allow_html=True)
+st.markdown('<div class="subtitle">상의, 하의, 가방, 모자, 액세서리까지 랜덤 추천!</div>', unsafe_allow_html=True)
 
 # 색상 리스트
-colors = ["화이트", "블랙", "베이지", "네이비", "카키", "그레이", "하늘색", "버건디", "브라운", "올리브"]
+colors = ["화이트", "블랙", "베이지", "네이비", "카키", "그레이", "하늘색", "버건디", "브라운", "올리브", "핑크", "오렌지"]
 bottom_colors = ["베이지", "차콜", "블랙", "화이트"]  # 부담 없는 하의 색상
 bag_colors = ["블랙", "베이지", "브라운", "네이비", "카키", "그레이", "화이트"]  # 톤 다운 가방 색상
 
@@ -52,6 +52,25 @@ color_clash = {
     "버건디": ["베이지", "카키"],
     "브라운": ["하늘색"],
     "올리브": ["버건디"],
+    "핑크": ["카키", "올리브"],
+    "오렌지": ["네이비", "카키"],
+}
+
+# 색상별 톤 분류
+color_tone = {
+    "화이트": "밝은",
+    "베이지": "밝은",
+    "하늘색": "밝은",
+    "핑크": "밝은",
+    "오렌지": "밝은",
+    "네이비": "중간",
+    "카키": "중간",
+    "그레이": "중간",
+    "올리브": "중간",
+    "블랙": "어두운",
+    "차콜": "어두운",
+    "버건디": "어두운",
+    "브라운": "어두운",
 }
 
 outfit_data = {
@@ -71,15 +90,12 @@ outfit_data = {
     }
 }
 
-situation_tags = ["데이트", "운동", "출근", "여행", "파티", "비오는 날"]
+situation_tags = ["데이트", "운동", "출근", "여행", "파티", "비오는 날", "하객룩"]
 
 gender = st.radio("👤 성별을 선택하세요:", options=["남자", "여자"], horizontal=True)
 situation = st.selectbox("📌 상황을 선택하세요:", situation_tags)
 
 def pick_color(possible_colors, used_point_count):
-    """
-    포인트 색상 1개 이상이면 포인트 색상 제외 후 뽑기
-    """
     if used_point_count >= 1:
         filtered = [c for c in possible_colors if c not in point_colors]
         if filtered:
@@ -89,13 +105,18 @@ def pick_color(possible_colors, used_point_count):
     else:
         return random.choice(possible_colors)
 
-def pick_color_no_clash(possible_colors, used_colors, used_point_count):
+def pick_color_no_clash_tone(possible_colors, used_colors, used_point_count):
     tries = 0
-    while tries < 10:
+    while tries < 15:
         color = pick_color(possible_colors, used_point_count)
         clash = False
         for uc in used_colors:
+            # 보색 충돌 체크
             if color in color_clash.get(uc, []) or uc in color_clash.get(color, []):
+                clash = True
+                break
+            # 톤 중복 체크
+            if color_tone.get(color) == color_tone.get(uc):
                 clash = True
                 break
         if not clash:
@@ -107,29 +128,34 @@ if st.button("✨ 풀코디 추천 받기"):
     point_count = 0
     used_colors = []
 
-    top_color = pick_color_no_clash(colors, used_colors, point_count)
+    top_color = pick_color_no_clash_tone(colors, used_colors, point_count)
     if top_color in point_colors:
         point_count += 1
     used_colors.append(top_color)
     top = random.choice(outfit_data[gender]["상의"])
 
-    bottom_color = pick_color_no_clash(bottom_colors, used_colors, point_count)
+    bottom_color = pick_color_no_clash_tone(bottom_colors, used_colors, point_count)
     if bottom_color in point_colors:
         point_count += 1
     used_colors.append(bottom_color)
     bottom = random.choice(outfit_data[gender]["하의"])
 
-    bag_color = pick_color_no_clash(bag_colors, used_colors, point_count)
+    bag_color = pick_color_no_clash_tone(bag_colors, used_colors, point_count)
     if bag_color in point_colors:
         point_count += 1
     used_colors.append(bag_color)
     bag = random.choice(outfit_data[gender]["가방"])
 
-    hat_color = pick_color_no_clash(colors, used_colors, point_count)
-    if hat_color in point_colors:
-        point_count += 1
-    used_colors.append(hat_color)
-    hat = random.choice(outfit_data[gender]["모자"])
+    # 데이트, 하객룩 땐 모자 빼기
+    if situation in ["데이트", "하객룩"]:
+        hat = "없음"
+        hat_color = "-"
+    else:
+        hat_color = pick_color_no_clash_tone(colors, used_colors, point_count)
+        if hat_color in point_colors:
+            point_count += 1
+        used_colors.append(hat_color)
+        hat = random.choice(outfit_data[gender]["모자"])
 
     accessory = random.choice(outfit_data[gender]["액세서리"])
 
@@ -139,7 +165,7 @@ if st.button("✨ 풀코디 추천 받기"):
         👕 상의: <strong>{top}</strong> ({top_color})<br>
         👖 하의: <strong>{bottom}</strong> ({bottom_color})<br>
         🎒 가방: <strong>{bag}</strong> ({bag_color})<br>
-        🧢 모자: <strong>{hat}</strong> ({hat_color})<br>
+        🧢 모자: <strong>{hat}</strong> {'' if hat == '없음' else f'({hat_color})'}<br>
         💍 액세서리: <strong>{accessory}</strong>
         </div>
     """, unsafe_allow_html=True)
